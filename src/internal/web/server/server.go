@@ -2,6 +2,7 @@ package server
 
 import (
 	"context"
+	"embed"
 	"fmt"
 	"net/http"
 	"os"
@@ -11,15 +12,12 @@ import (
 	"go.uber.org/fx"
 )
 
-////go:embed all:public
-//var content embed.FS
-
-func NewHTTPServer(h *handlers.GameHandler, lifecycle fx.Lifecycle) *gin.Engine {
+func NewHTTPServer(h *handlers.GameHandler, lifecycle fx.Lifecycle, fs embed.FS) *gin.Engine {
 	r := gin.Default()
 
 	setupMiddleware(r)
 
-	server := setupRoutes(r, h)
+	server := setupRoutes(r, h, fs)
 
 	setupLifecycle(server, lifecycle)
 
@@ -39,22 +37,22 @@ func setupMiddleware(r *gin.Engine) {
 	})
 }
 
-func setupRoutes(r *gin.Engine, h *handlers.GameHandler) *http.Server {
+func setupRoutes(r *gin.Engine, h *handlers.GameHandler, fs embed.FS) *http.Server {
 	port := os.Getenv("PORT")
 	if port == "" {
 		port = "8080"
 	}
 
-	r.StaticFile("/", "./public/index.html")
-	/*r.GET("/", func(c *gin.Context) {
-		index, err := content.ReadFile("public/index.html")
+	//r.StaticFile("/", "./public/index.html")
+	r.GET("/", func(c *gin.Context) {
+		index, err := fs.ReadFile("index.html")
 		if err != nil {
 			fmt.Printf("Ошибка embed: %v\n", err)
 			c.String(http.StatusNotFound, "File not found")
 			return
 		}
 		c.Data(http.StatusOK, "text/html; charset=utf-8", index)
-	})*/
+	})
 
 	r.POST("/game/:uuid", h.HandleMove)
 
