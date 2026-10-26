@@ -23,12 +23,10 @@ func NewAuthHandler(authSvc interfaces.AuthService, userSvc interfaces.UserServi
 
 func (h *AuthHandler) SignUp(c *gin.Context) {
 
-	var webReq webModels.SignUpRequest
+	var webReq webModels.JwtRequest
 
 	if err := c.ShouldBindJSON(&webReq); err != nil {
-		c.JSON(http.StatusBadRequest, webModels.ErrorResponse{
-			Message: "Invalid request body: login and password are required",
-		})
+		c.JSON(http.StatusBadRequest, webModels.ErrorResponse{Message: "Invalid request body: login and password are required"})
 		return
 	}
 
@@ -42,44 +40,38 @@ func (h *AuthHandler) SignUp(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusCreated, webModels.RegisterResponse{
-		Message: "User registered successfully",
-	})
+	c.JSON(http.StatusCreated, webModels.RegisterResponse{Message: "User registered successfully"})
 }
 
-func (h *AuthHandler) Authenticate(c *gin.Context) {
-	login, password, ok := c.Request.BasicAuth()
-	if !ok {
-		c.Header("WWW-Authenticate", `Basic realm="restricted"`)
-		c.JSON(http.StatusUnauthorized, webModels.ErrorResponse{
-			Message: "Authorization header is missing or malformed",
-		})
+func (h *AuthHandler) Login(c *gin.Context) {
+	var req webModels.JwtRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, webModels.ErrorResponse{Message: "Invalid request body: login and password are required"})
 		return
 	}
 
-	userUUID, err := h.authService.Authenticate(c.Request.Context(), login, password)
+	tokens, err := h.authService.Login(c.Request.Context(), req.Login, req.Password)
 	if err != nil {
-		c.JSON(http.StatusUnauthorized, webModels.ErrorResponse{
-			Message: "Invalid login or password",
-		})
+		c.JSON(http.StatusUnauthorized, webModels.ErrorResponse{Message: "Invalid credentials"})
 		return
 	}
 
-	c.JSON(http.StatusOK, webModels.AuthResponse{
-		UUID: userUUID,
+	c.JSON(http.StatusOK, webModels.JwtResponse{
+		AccessToken:  tokens.AccessToken,
+		RefreshToken: tokens.RefreshToken,
+		TokenType:    tokens.TokenType,
 	})
 }
 
 func (h *AuthHandler) GetUserInfo(c *gin.Context) {
-	ctx := c.Request.Context()
-	userUUID := c.Param("uuid")
 
-	if userUUID == "" {
-		c.JSON(http.StatusBadRequest, webModels.ErrorResponse{Message: "User UUID is required"})
+	userID, exists := c.Get("userID")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, webModels.ErrorResponse{Message: "Unauthorized"})
 		return
 	}
 
-	user, err := h.userService.GetByID(ctx, userUUID)
+	user, err := h.userService.GetByID(c.Request.Context(), userID.(string))
 	if err != nil {
 		c.JSON(http.StatusNotFound, webModels.ErrorResponse{Message: "User not found"})
 		return
@@ -87,4 +79,44 @@ func (h *AuthHandler) GetUserInfo(c *gin.Context) {
 
 	response := mappers.ToWebUserInfoResponse(user)
 	c.JSON(http.StatusOK, response)
+
+}
+func (h *AuthHandler) RefreshAccessToken(c *gin.Context) {
+	var req webModels.RefreshJwtRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, webModels.ErrorResponse{Message: "refresh token is required"})
+		return
+	}
+
+	tokens, err := h.authService.RefreshAccessToken(c.Request.Context(), req.RefreshToken)
+	if err != nil {
+		c.JSON(http.StatusUnauthorized, webModels.ErrorResponse{Message: "invalid refresh token"})
+		return
+	}
+
+	c.JSON(http.StatusOK, webModels.JwtResponse{
+		AccessToken:  tokens.AccessToken,
+		RefreshToken: tokens.RefreshToken,
+		TokenType:    "Bearer",
+	})
+}
+
+func (h *AuthHandler) Refresh(c *gin.Context) {
+	var req webModels.RefreshJwtRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, webModels.ErrorResponse{Message: "refresh token is required"})
+		return
+	}
+
+	tokens, err := h.authService.RefreshRefreshToken(c.Request.Context(), req.RefreshToken)
+	if err != nil {
+		c.JSON(http.StatusUnauthorized, webModels.ErrorResponse{Message: "invalid refresh token"})
+		return
+	}
+
+	c.JSON(http.StatusOK, webModels.JwtResponse{
+		AccessToken:  tokens.AccessToken,
+		RefreshToken: tokens.RefreshToken,
+		TokenType:    "Bearer",
+	})
 }

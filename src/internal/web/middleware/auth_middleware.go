@@ -2,6 +2,7 @@ package middleware
 
 import (
 	"net/http"
+	"strings"
 	"tic-tac-toe/internal/domain/interfaces"
 	"tic-tac-toe/internal/web/models"
 
@@ -9,35 +10,44 @@ import (
 )
 
 type UserAuthenticator struct {
-	authService interfaces.AuthService
+	tokenProvider interfaces.TokenProvider
 }
 
-func NewUserAuthenticator(service interfaces.AuthService) *UserAuthenticator {
+func NewUserAuthenticator(tokenProv interfaces.TokenProvider) *UserAuthenticator {
 	return &UserAuthenticator{
-		authService: service,
+		tokenProvider: tokenProv,
 	}
 }
 
 func (a *UserAuthenticator) Handler() gin.HandlerFunc {
 	return func(c *gin.Context) {
-		login, password, ok := c.Request.BasicAuth()
-		if !ok {
-			c.Header("WWW-Authenticate", `Basic realm="restricted"`)
+		authHeader := c.GetHeader("Authorization")
+		if authHeader == "" {
 			c.AbortWithStatusJSON(http.StatusUnauthorized, models.ErrorResponse{
-				Message: "Authorization required",
+				Message: "Authorization header is required",
 			})
 			return
 		}
 
-		userId, err := a.authService.Authenticate(c.Request.Context(), login, password)
+		parts := strings.SplitN(authHeader, " ", 2)
+		if !(len(parts) == 2 && parts[0] == "Bearer") {
+			c.AbortWithStatusJSON(http.StatusUnauthorized, models.ErrorResponse{
+				Message: "Authorization header must be Bearer {token}",
+			})
+			return
+		}
+
+		accessToken := parts[1]
+
+		userUUID, err := a.tokenProvider.ExtractUUID(accessToken)
 		if err != nil {
 			c.AbortWithStatusJSON(http.StatusUnauthorized, models.ErrorResponse{
-				Message: "Invalid login or password",
+				Message: "Invalid or expired token",
 			})
 			return
 		}
 
-		c.Set("user_id", userId)
+		c.Set("userID", userUUID.String())
 
 		c.Next()
 	}

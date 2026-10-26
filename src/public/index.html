@@ -136,6 +136,9 @@
         </label>
         <button onclick="createGame()">Новая игра</button>
         <button onclick="refreshGames()" style="background:#334155">Обновить список</button>
+        <button onclick="showProfile()" style="background:#334155">Профиль</button>
+        <button onclick="showHistory()" style="background:#334155">История игр</button>
+        <button onclick="showLeaderboard()" style="background:#334155">Рейтинг</button>
         <div class="games-list" id="games-container"></div>
     </div>
 
@@ -143,6 +146,14 @@
         <div id="status-text" class="status-bar">Ожидание хода...</div>
         <div id="board" class="board"></div>
         <div style="font-size:10px; opacity:0.4" id="game-id-display"></div>
+    </div>
+
+    <div id="info-block" class="hidden">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px;">
+            <h3 id="info-title" style="margin:0">Информация</h3>
+            <button onclick="backToLobby()" style="width:auto; padding:5px 12px; background:#475569; font-size:11px;">Назад</button>
+        </div>
+        <div id="info-content" style="max-height:300px; overflow-y:auto; background:rgba(0,0,0,0.2); border-radius:12px; padding:15px;"></div>
     </div>
 </div>
 
@@ -156,45 +167,166 @@
     async function register() {
         const loginVal = document.getElementById('login').value;
         const passVal = document.getElementById('password').value;
-        const res = await fetch('/signup', { method: 'POST', body: JSON.stringify({ login: loginVal, password: passVal }) });
-        const data = await res.json();
-        alert(data.message || data.error);
+        
+        if (!loginVal || !passVal) {
+            alert('Введите логин и пароль');
+            return;
+        }
+        
+        try {
+            const res = await fetch('/signup', { 
+                method: 'POST', 
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ login: loginVal, password: passVal }) 
+            });
+            const data = await res.json();
+            alert(data.message || data.error || 'Регистрация завершена');
+        } catch (error) {
+            console.error('Ошибка регистрации:', error);
+            alert('Ошибка соединения с сервером');
+        }
+    }
+
+    // Функция для декодирования JWT токена
+    function parseJWT(token) {
+        try {
+            const base64Url = token.split('.')[1];
+            const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+            const jsonPayload = decodeURIComponent(atob(base64).split('').map(function(c) {
+                return '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2);
+            }).join(''));
+            return JSON.parse(jsonPayload);
+        } catch (e) {
+            console.error('Ошибка парсинга токена:', e);
+            return null;
+        }
     }
 
     async function login() {
         const loginVal = document.getElementById('login').value;
         const passVal = document.getElementById('password').value;
-        const authHeader = 'Basic ' + btoa(loginVal + ':' + passVal);
-        const res = await fetch('/login', { method: 'POST', headers: { 'Authorization': authHeader } });
-        if (res.ok) {
-            const data = await res.json();
-            currentUser = { uuid: data.uuid, login: loginVal, authHeader: authHeader };
-            document.getElementById('auth-block').classList.add('hidden');
-            document.getElementById('lobby-block').classList.remove('hidden');
-            document.getElementById('user-display').innerText = loginVal;
-            refreshGames();
-        } else { alert("Ошибка входа"); }
+        
+        try {
+            const res = await fetch('/login', { 
+                method: 'POST', 
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ login: loginVal, password: passVal })
+            });
+            
+            if (res.ok) {
+                const data = await res.json();
+                console.log('Login response:', data);
+                
+                const token = data.accessToken || data.access_token;
+                if (!token) {
+                    alert('Токен не получен от сервера');
+                    return;
+                }
+                
+                // Извлекаем user_id из токена
+                const tokenPayload = parseJWT(token);
+                const userId = tokenPayload ? tokenPayload.user_id : null;
+                
+                console.log('Token payload:', tokenPayload);
+                
+                currentUser = { 
+                    uuid: userId || data.uuid || data.id || loginVal,
+                    login: loginVal, 
+                    authHeader: 'Bearer ' + token
+                };
+                
+                console.log('Current user:', currentUser);
+                
+                document.getElementById('auth-block').classList.add('hidden');
+                document.getElementById('lobby-block').classList.remove('hidden');
+                document.getElementById('user-display').innerText = loginVal;
+                refreshGames();
+            } else { 
+                const errorData = await res.json().catch(() => ({}));
+                alert(errorData.message || "Ошибка входа"); 
+            }
+        } catch (error) {
+            console.error('Ошибка при входе:', error);
+            alert('Ошибка соединения с сервером');
+        }
     }
 
     async function refreshGames() {
-        const res = await fetch('/games/available', { headers: { 'Authorization': currentUser.authHeader } });
-        const games = await res.json();
-        const container = document.getElementById('games-container');
-        container.innerHTML = games.length ? '' : '<div style="color:gray; font-size:12px; text-align:center; padding:10px;">Нет доступных игр</div>';
-        games.forEach(g => {
-            if (g.player_x_id !== currentUser.uuid) {
-                container.innerHTML += `<div class="game-item"><span>От: ${g.player_x_id.substring(0,6)}</span><button onclick="joinGame('${g.game_id}')">Зайти</button></div>`;
+        if (!currentUser || !currentUser.authHeader) {
+            console.error('Пользователь не авторизован');
+            return;
+        }
+        
+        try {
+            const res = await fetch('/games/available', { 
+                headers: { 'Authorization': currentUser.authHeader } 
+            });
+            
+            if (!res.ok) {
+                console.error('Ошибка получения списка игр:', res.status, res.statusText);
+                return;
             }
-        });
+            
+            const games = await res.json();
+            console.log('Полученные игры:', games);
+            
+            const container = document.getElementById('games-container');
+            container.innerHTML = '';
+            
+            if (!games || games.length === 0) {
+                container.innerHTML = '<div style="color:gray; font-size:12px; text-align:center; padding:10px;">Нет доступных игр</div>';
+                return;
+            }
+            
+            games.forEach(g => {
+                if (g.player_x_id !== currentUser.uuid) {
+                    const gameItem = document.createElement('div');
+                    gameItem.className = 'game-item';
+                    gameItem.innerHTML = `
+                        <span>От: ${g.player_x_id ? g.player_x_id.substring(0,6) : 'Неизвестно'}</span>
+                        <button onclick="joinGame('${g.game_id}')">Зайти</button>
+                    `;
+                    container.appendChild(gameItem);
+                }
+            });
+        } catch (error) {
+            console.error('Ошибка при обновлении списка игр:', error);
+        }
     }
 
     async function createGame() {
-        const res = await fetch('/game/create', {
-            method: 'POST',
-            headers: { 'Authorization': currentUser.authHeader, 'Content-Type': 'application/json' },
-            body: JSON.stringify({ is_vs_bot: document.getElementById('vs-bot').checked })
-        });
-        loadMatch(await res.json());
+        if (!currentUser || !currentUser.authHeader) {
+            alert('Необходимо войти в систему');
+            return;
+        }
+        
+        console.log('Creating game with auth:', currentUser.authHeader); // Отладка
+        
+        try {
+            const res = await fetch('/game/create', {
+                method: 'POST',
+                headers: { 
+                    'Authorization': currentUser.authHeader, 
+                    'Content-Type': 'application/json' 
+                },
+                body: JSON.stringify({ is_vs_bot: document.getElementById('vs-bot').checked })
+            });
+            
+            console.log('Create game response status:', res.status); // Отладка
+            
+            if (res.ok) {
+                const gameData = await res.json();
+                console.log('Game created:', gameData);
+                loadMatch(gameData);
+            } else {
+                const error = await res.json().catch(() => ({}));
+                console.error('Create game error:', error);
+                alert(error.message || 'Ошибка создания игры');
+            }
+        } catch (error) {
+            console.error('Ошибка при создании игры:', error);
+            alert('Ошибка создания игры');
+        }
     }
 
     async function joinGame(id) {
@@ -244,12 +376,22 @@
 
     async function makeMove(r, c) {
         if (gameOver) return;
-        const res = await fetch(`/game/${currentGameId}`, { 
-            method: 'POST',
-            headers: { 'Authorization': currentUser.authHeader, 'Content-Type': 'application/json' },
-            body: JSON.stringify({ row: r, col: c, board: boardData })
-        });
-        if (res.ok) loadMatch(await res.json());
+        try {
+            const res = await fetch(`/game/${currentGameId}`, { 
+                method: 'POST',
+                headers: { 'Authorization': currentUser.authHeader, 'Content-Type': 'application/json' },
+                body: JSON.stringify({ row: r, col: c, board: boardData })
+            });
+            if (res.ok) {
+                const gameData = await res.json();
+                loadMatch(gameData);
+            } else {
+                const error = await res.json().catch(() => ({}));
+                console.error('Ошибка хода:', error.message);
+            }
+        } catch (error) {
+            console.error('Ошибка при выполнении хода:', error);
+        }
     }
 
     function updateStatus(data) {
@@ -290,6 +432,133 @@
         document.getElementById('game-block').classList.add('hidden');
         document.getElementById('lobby-block').classList.remove('hidden');
         refreshGames();
+    }
+
+    async function showProfile() {
+        try {
+            const res = await fetch('/user/me', {
+                headers: { 'Authorization': currentUser.authHeader }
+            });
+            if (res.ok) {
+                const user = await res.json();
+                document.getElementById('info-title').innerText = 'Профиль';
+                document.getElementById('info-content').innerHTML = `
+                    <div style="text-align:left;">
+                        <p><strong>ID:</strong> ${user.id}</p>
+                        <p><strong>Логин:</strong> ${user.login}</p>
+                        <p><strong>Дата регистрации:</strong> ${user.created_at}</p>
+                    </div>
+                `;
+                showInfoBlock();
+            }
+        } catch (error) {
+            console.error('Ошибка получения профиля:', error);
+        }
+    }
+
+    async function showHistory() {
+        try {
+            const res = await fetch('/games/history', {
+                headers: { 'Authorization': currentUser.authHeader }
+            });
+            if (res.ok) {
+                const games = await res.json();
+                document.getElementById('info-title').innerText = 'История игр';
+                let content = '';
+                if (games.length === 0) {
+                    content = '<p style="text-align:center; color:gray;">Нет сыгранных игр</p>';
+                } else {
+                    games.forEach(game => {
+                        const isWinner = game.winner_id === currentUser.uuid;
+                        const isDraw = game.status.includes('Draw');
+                        const resultColor = isDraw ? '#fbbf24' : (isWinner ? '#22c55e' : '#f43f5e');
+                        const resultText = isDraw ? 'Ничья' : (isWinner ? 'Победа' : 'Поражение');
+                        content += `
+                            <div style="border-bottom:1px solid #334155; padding:8px 0;">
+                                <div style="display:flex; justify-content:space-between;">
+                                    <span>Игра: ${game.game_id.substring(0,8)}...</span>
+                                    <span style="color:${resultColor}; font-weight:bold;">${resultText}</span>
+                                </div>
+                                <div style="font-size:12px; color:#94a3b8;">${game.status}</div>
+                            </div>
+                        `;
+                    });
+                }
+                document.getElementById('info-content').innerHTML = content;
+                showInfoBlock();
+            }
+        } catch (error) {
+            console.error('Ошибка получения истории:', error);
+        }
+    }
+
+    async function showLeaderboard() {
+        try {
+            const res = await fetch('/games/leaders?n=10', {
+                headers: { 'Authorization': currentUser.authHeader }
+            });
+            
+            document.getElementById('info-title').innerText = 'Рейтинг игроков';
+            
+            if (res.ok) {
+                const leaders = await res.json();
+                console.log('Leaderboard data:', leaders);
+                
+                let content = '';
+                if (!leaders || leaders.length === 0) {
+                    content = '<p style="text-align:center; color:gray;">Нет данных о рейтинге</p>';
+                } else {
+                    leaders.forEach((leader, index) => {
+                        const place = index + 1;
+                        const medal = place === 1 ? '🥇' : place === 2 ? '🥈' : place === 3 ? '🥉' : `${place}.`;
+                        const winRatio = leader.WinRatio || leader.win_ratio || 0;
+                        const login = leader.Login || leader.login || 'Неизвестно';
+                        content += `
+                            <div style="display:flex; justify-content:space-between; align-items:center; padding:8px 0; border-bottom:1px solid #334155;">
+                                <div>
+                                    <span style="margin-right:8px;">${medal}</span>
+                                    <span>${login}</span>
+                                </div>
+                                <span style="color:#6366f1; font-weight:bold;">${(winRatio * 100).toFixed(1)}%</span>
+                            </div>
+                        `;
+                    });
+                }
+                document.getElementById('info-content').innerHTML = content;
+            } else {
+                console.error('Leaderboard request failed:', res.status, res.statusText);
+                const errorData = await res.json().catch(() => ({}));
+                console.error('Error details:', errorData);
+                document.getElementById('info-content').innerHTML = `
+                    <p style="text-align:center; color:#f43f5e;">
+                        Ошибка сервера (${res.status})<br>
+                        <small>Попробуйте позже</small>
+                    </p>
+                `;
+            }
+            
+            showInfoBlock();
+        } catch (error) {
+            console.error('Ошибка при получении рейтинга:', error);
+            document.getElementById('info-title').innerText = 'Рейтинг игроков';
+            document.getElementById('info-content').innerHTML = `
+                <p style="text-align:center; color:#f43f5e;">
+                    Ошибка соединения<br>
+                    <small>Проверьте интернет</small>
+                </p>
+            `;
+            showInfoBlock();
+        }
+    }
+
+    function showInfoBlock() {
+        document.getElementById('lobby-block').classList.add('hidden');
+        document.getElementById('info-block').classList.remove('hidden');
+    }
+
+    function backToLobby() {
+        document.getElementById('info-block').classList.add('hidden');
+        document.getElementById('lobby-block').classList.remove('hidden');
     }
 </script>
 </body>

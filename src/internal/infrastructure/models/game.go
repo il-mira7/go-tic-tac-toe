@@ -21,3 +21,9 @@ type GameDTO struct {
 	CreatedAt  time.Time  `db:"created_at"`
 	FinishedAt *time.Time `db:"finished_at"`
 }
+
+type LeaderboardDTO struct {
+	UserID   uuid.UUID `db:"user_id"`
+	Login    string    `db:"login"`
+	WinRatio float64   `db:"win_ratio"`
+}

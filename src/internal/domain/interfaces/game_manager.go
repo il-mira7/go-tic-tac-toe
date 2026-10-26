@@ -13,3 +13,8 @@ type GameManager interface {
 	GetAvailableGames(ctx context.Context) ([]*models.CurrentGame, error)
 	GetGame(ctx context.Context, id string) (*models.CurrentGame, error)
 }
+
+type GameInfoManager interface {
+	GetUserHistory(ctx context.Context, id string) ([]*models.CurrentGame, error)
+	GetLeaderboard(ctx context.Context, limit int) ([]*models.Leaderboard, error)
+}

@@ -15,6 +15,7 @@ import (
 func NewHTTPServer(
 	h *handlers.GameHandler,
 	authH *handlers.AuthHandler,
+	i *handlers.GameInfoHandler,
 	authMW *middleware.UserAuthenticator,
 	lifecycle fx.Lifecycle,
 ) *gin.Engine {
@@ -22,7 +23,7 @@ func NewHTTPServer(
 
 	setupMiddleware(r)
 
-	server := setupRoutes(r, h, authH, authMW)
+	server := setupRoutes(r, h, i, authH, authMW)
 
 	setupLifecycle(server, lifecycle)
 
@@ -43,7 +44,7 @@ func setupMiddleware(r *gin.Engine) {
 	})
 }
 
-func setupRoutes(r *gin.Engine, h *handlers.GameHandler, authH *handlers.AuthHandler, authMW *middleware.UserAuthenticator) *http.Server {
+func setupRoutes(r *gin.Engine, h *handlers.GameHandler, i *handlers.GameInfoHandler, authH *handlers.AuthHandler, authMW *middleware.UserAuthenticator) *http.Server {
 	port := os.Getenv("PORT")
 	if port == "" {
 		port = "8080"
@@ -52,7 +53,9 @@ func setupRoutes(r *gin.Engine, h *handlers.GameHandler, authH *handlers.AuthHan
 	r.StaticFile("/", "./public/index.html")
 
 	r.POST("/signup", authH.SignUp)
-	r.POST("/login", authH.Authenticate)
+	r.POST("/login", authH.Login)
+	r.POST("/auth/refresh", authH.Refresh)
+	r.POST("/auth/token/refresh", authH.RefreshAccessToken)
 
 	authorized := r.Group("/")
 	authorized.Use(authMW.Handler())
@@ -62,7 +65,12 @@ func setupRoutes(r *gin.Engine, h *handlers.GameHandler, authH *handlers.AuthHan
 		authorized.POST("/game/:uuid/join", h.JoinGame)
 		authorized.POST("/game/:uuid", h.HandleMove)
 		authorized.GET("/game/:uuid", h.GetGame)
-		authorized.GET("/user/:uuid", authH.GetUserInfo)
+
+		authorized.GET("/user/me", authH.GetUserInfo)
+
+		authorized.GET("/games/history", i.GetUserHistory)
+
+		authorized.GET("/games/leaders", i.GetLeaderboard)
 	}
 
 	return &http.Server{

@@ -5,7 +5,7 @@ import (
 	webModels "tic-tac-toe/internal/web/models"
 )
 
-func ToDomainSignUp(req webModels.SignUpRequest) models.SignUpRequest {
+func ToDomainSignUp(req webModels.JwtRequest) models.SignUpRequest {
 	return models.SignUpRequest{
 		Login:    req.Login,
 		Password: req.Password,

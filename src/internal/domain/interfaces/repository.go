@@ -9,6 +9,8 @@ type GameRepository interface {
 	Save(ctx context.Context, game *models.CurrentGame) error
 	Get(ctx context.Context, id string) (*models.CurrentGame, error)
 	GetAvailableGames(ctx context.Context) ([]*models.CurrentGame, error)
+	GetFinishedGamesByUserID(ctx context.Context, id string) ([]*models.CurrentGame, error)
+	GetTopPlayers(ctx context.Context, limit int) ([]*models.Leaderboard, error)
 }
 
 type UserRepository interface {

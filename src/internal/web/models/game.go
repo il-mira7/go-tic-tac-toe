@@ -19,3 +19,9 @@ type GameUpdateRequest struct {
 type ErrorResponse struct {
 	Message string `json:"message"`
 }
+
+type LeaderBoardResponse struct {
+	ID       string
+	Login    string
+	WinRatio float64
+}

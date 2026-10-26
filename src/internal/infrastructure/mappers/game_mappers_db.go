@@ -9,6 +9,15 @@ import (
 	"github.com/google/uuid"
 )
 
+func LeadersToDomain(u *dto.LeaderboardDTO) *models.Leaderboard {
+
+	return &models.Leaderboard{
+		ID:       u.UserID.String(),
+		Login:    u.Login,
+		WinRatio: u.WinRatio,
+	}
+}
+
 func ToPostgres(g *models.CurrentGame) (*dto.GameDTO, error) {
 
 	board, err := json.Marshal(g.Game.Board)

@@ -23,6 +23,16 @@ func NewRepositoryGameUseManager(repo interfaces.GameRepository, domainSvc inter
 	}
 }
 
+type repositoryGameInfoManager struct {
+	repository interfaces.GameRepository
+}
+
+func NewRepositoryGameInfoManager(repo interfaces.GameRepository) interfaces.GameInfoManager {
+	return &repositoryGameInfoManager{
+		repository: repo,
+	}
+}
+
 func (g *repositoryGameManager) CreateGame(ctx context.Context, playerXID string, isVsBot bool) (*models.CurrentGame, error) {
 	game := &models.CurrentGame{
 		ID:           uuid.NewString(),
@@ -143,4 +153,29 @@ func (g *repositoryGameManager) GetGame(ctx context.Context, id string) (*models
 	}
 
 	return game, nil
+}
+
+func (g *repositoryGameInfoManager) GetUserHistory(ctx context.Context, id string) ([]*models.CurrentGame, error) {
+	games, err := g.repository.GetFinishedGamesByUserID(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+
+	if games == nil {
+		return []*models.CurrentGame{}, nil
+	}
+
+	return games, nil
+}
+
+func (g *repositoryGameInfoManager) GetLeaderboard(ctx context.Context, limit int) ([]*models.Leaderboard, error) {
+	usres, err := g.repository.GetTopPlayers(ctx, limit)
+	if err != nil {
+		return nil, err
+	}
+	if usres == nil {
+		return []*models.Leaderboard{}, nil
+	}
+
+	return usres, nil
 }

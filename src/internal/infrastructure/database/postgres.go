@@ -4,6 +4,7 @@ import (
 	"context"
 	_ "embed"
 	"fmt"
+	"tic-tac-toe/internal/infrastructure/config"
 
 	"github.com/jackc/pgx/v5/pgxpool"
 )
@@ -11,9 +12,9 @@ import (
 //go:embed init.sql
 var initSQL string
 
-func NewPostgresPool(connStr string) (*pgxpool.Pool, error) {
+func NewPostgresPool(cfg *config.DatabaseConfig) (*pgxpool.Pool, error) {
 	ctx := context.Background()
-	pool, err := pgxpool.New(ctx, connStr)
+	pool, err := pgxpool.New(ctx, cfg.URL)
 	if err != nil {
 		return nil, fmt.Errorf("unable to create connection pool: %w", err)
 	}

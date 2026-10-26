@@ -3,6 +3,8 @@ package interfaces
 import (
 	"context"
 	"tic-tac-toe/internal/domain/models"
+
+	"github.com/google/uuid"
 )
 
 type GameService interface {
@@ -19,5 +21,17 @@ type UserService interface {
 
 type AuthService interface {
 	SignUp(ctx context.Context, req models.SignUpRequest) error
-	Authenticate(ctx context.Context, login, password string) (string, error)
+	Login(ctx context.Context, login, password string) (models.TokenPair, error)
+
+	RefreshAccessToken(ctx context.Context, refreshToken string) (models.TokenPair, error)
+	RefreshRefreshToken(ctx context.Context, refreshToken string) (models.TokenPair, error)
+}
+
+type TokenProvider interface {
+	GenerateAccessToken(userID uuid.UUID) (string, error)
+	GenerateRefreshToken(userID uuid.UUID) (string, error)
+	ValidateAccessToken(tokenStr string) (bool, error)
+	ValidateRefreshToken(tokenStr string) (bool, error)
+	ExtractUUID(tokenStr string) (uuid.UUID, error)
+	ExtractUUIDForRefresh(tokenStr string) (uuid.UUID, error)
 }

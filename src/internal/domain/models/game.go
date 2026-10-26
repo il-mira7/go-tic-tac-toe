@@ -43,3 +43,9 @@ const (
 type Move struct {
 	Row, Col int
 }
+
+type Leaderboard struct {
+	ID       string
+	Login    string
+	WinRatio float64
+}

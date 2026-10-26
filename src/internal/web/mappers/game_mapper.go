@@ -35,6 +35,22 @@ func ToWebResponseList(games []*models.CurrentGame) []web.GameResponse {
 	return res
 }
 
+func LeadersToWeb(users []*models.Leaderboard) []web.LeaderBoardResponse {
+	toWeb := func(u *models.Leaderboard) web.LeaderBoardResponse {
+		return web.LeaderBoardResponse{
+			ID:       u.ID,
+			Login:    u.Login,
+			WinRatio: u.WinRatio,
+		}
+	}
+
+	res := make([]web.LeaderBoardResponse, 0, len(users))
+	for _, user := range users {
+		res = append(res, toWeb(user))
+	}
+	return res
+}
+
 func statusToWebString(s domain.GameStatus) string {
 	switch s {
 	case domain.Waiting:

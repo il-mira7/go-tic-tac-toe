@@ -3,7 +3,9 @@ package di
 import (
 	app "tic-tac-toe/internal/app/services"
 	domain "tic-tac-toe/internal/domain/services"
+	"tic-tac-toe/internal/infrastructure/config"
 	"tic-tac-toe/internal/infrastructure/database"
+	"tic-tac-toe/internal/infrastructure/jwt"
 	"tic-tac-toe/internal/infrastructure/repository"
 
 	"tic-tac-toe/internal/web/handlers"
@@ -15,7 +17,9 @@ import (
 
 var Module = fx.Options(
 	fx.Provide(
-		NewDatabaseConfig,
+		config.NewConfig,
+		func(cfg *config.Config) *config.DatabaseConfig { return &cfg.DB },
+
 		database.NewPostgresPool,
 		repository.NewPostgresGameRepository,
 		repository.NewPostgresUserRepository,
@@ -27,5 +31,10 @@ var Module = fx.Options(
 		domain.NewGameService,
 		handlers.NewGameHandler,
 		server.NewHTTPServer,
+
+		func(cfg *config.Config) *config.JWTConfig { return &cfg.JWT },
+		jwt.NewJwtProvider,
+		handlers.NewGameInfoHandler,
+		app.NewRepositoryGameInfoManager,
 	),
 )

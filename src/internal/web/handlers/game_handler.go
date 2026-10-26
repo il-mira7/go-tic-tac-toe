@@ -23,7 +23,7 @@ func NewGameHandler(gameManager interfaces.GameManager) *GameHandler {
 func (h *GameHandler) CreateGame(c *gin.Context) {
 	ctx := c.Request.Context()
 
-	userID := c.GetString("user_id")
+	userID := c.GetString("userID")
 	if userID == "" {
 		c.JSON(http.StatusUnauthorized, webModels.ErrorResponse{Message: "User not authenticated"})
 		return
@@ -62,7 +62,7 @@ func (h *GameHandler) GetAvailableGames(c *gin.Context) {
 func (h *GameHandler) JoinGame(c *gin.Context) {
 	ctx := c.Request.Context()
 	gameUUID := c.Param("uuid")
-	userID := c.GetString("user_id")
+	userID := c.GetString("userID")
 
 	if userID == "" {
 		c.JSON(http.StatusUnauthorized, webModels.ErrorResponse{Message: "User not authenticated"})
@@ -85,7 +85,7 @@ func (h *GameHandler) HandleMove(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, webModels.ErrorResponse{Message: "UUID is required"})
 		return
 	}
-	userID := c.GetString("user_id")
+	userID := c.GetString("userID")
 
 	if userID == "" {
 		c.JSON(http.StatusUnauthorized, webModels.ErrorResponse{Message: "User not authenticated"})
