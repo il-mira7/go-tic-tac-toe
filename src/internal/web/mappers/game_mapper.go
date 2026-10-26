@@ -1,6 +1,7 @@
 package mappers
 
 import (
+	"tic-tac-toe/internal/domain/models"
 	domain "tic-tac-toe/internal/domain/models"
 	web "tic-tac-toe/internal/web/models"
 )
@@ -14,23 +15,41 @@ func ToDomain(id string, req web.GameUpdateRequest) domain.CurrentGame {
 	}
 }
 
-func ToResponse(dg domain.CurrentGame, status domain.GameStatus) web.GameResponse {
-	var stringStatus string
-	switch status {
-	case domain.Ongoing:
-		stringStatus = "Ongoing"
-	case domain.Draw:
-		stringStatus = "Draw"
-	case domain.Player1Wins:
-		stringStatus = "Player 1 Wins"
-	case domain.Player2Wins:
-		stringStatus = "Computer Wins"
-	default:
-		stringStatus = "Unknown"
-	}
+func ToWebResponse(dg *domain.CurrentGame) web.GameResponse {
 	return web.GameResponse{
-		GameID: dg.ID,
-		Board:  dg.Game.Board,
-		Status: stringStatus,
+		GameID:        dg.ID,
+		Board:         dg.Game.Board,
+		Status:        statusToWebString(dg.Status),
+		PlayerXID:     dg.PlayerXID,
+		PlayerOID:     dg.PlayerOID,
+		CurrentTurnID: dg.CurrentTurnID,
+		WinnerID:      dg.WinnerID,
+	}
+}
+
+func ToWebResponseList(games []*models.CurrentGame) []web.GameResponse {
+	res := make([]web.GameResponse, 0, len(games))
+	for _, g := range games {
+		res = append(res, ToWebResponse(g))
+	}
+	return res
+}
+
+func statusToWebString(s domain.GameStatus) string {
+	switch s {
+	case domain.Waiting:
+		return "Waiting for player"
+	case domain.XTurn:
+		return "Player X Turn"
+	case domain.OTurn:
+		return "Player O Turn"
+	case domain.XWin:
+		return "Player X Wins"
+	case domain.OWin:
+		return "Player O Wins"
+	case domain.Draw:
+		return "Draw"
+	default:
+		return "Unknown"
 	}
 }

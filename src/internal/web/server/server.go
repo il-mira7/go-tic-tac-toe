@@ -2,22 +2,27 @@ package server
 
 import (
 	"context"
-	"embed"
 	"fmt"
 	"net/http"
 	"os"
 	"tic-tac-toe/internal/web/handlers"
+	"tic-tac-toe/internal/web/middleware"
 
 	"github.com/gin-gonic/gin"
 	"go.uber.org/fx"
 )
 
-func NewHTTPServer(h *handlers.GameHandler, lifecycle fx.Lifecycle, fs embed.FS) *gin.Engine {
+func NewHTTPServer(
+	h *handlers.GameHandler,
+	authH *handlers.AuthHandler,
+	authMW *middleware.UserAuthenticator,
+	lifecycle fx.Lifecycle,
+) *gin.Engine {
 	r := gin.Default()
 
 	setupMiddleware(r)
 
-	server := setupRoutes(r, h, fs)
+	server := setupRoutes(r, h, authH, authMW)
 
 	setupLifecycle(server, lifecycle)
 
@@ -28,7 +33,8 @@ func setupMiddleware(r *gin.Engine) {
 	r.Use(func(c *gin.Context) {
 		c.Writer.Header().Set("Access-Control-Allow-Origin", "*")
 		c.Writer.Header().Set("Access-Control-Allow-Methods", "POST, GET, OPTIONS")
-		c.Writer.Header().Set("Access-Control-Allow-Headers", "Content-Type")
+		c.Writer.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization")
+
 		if c.Request.Method == "OPTIONS" {
 			c.AbortWithStatus(204)
 			return
@@ -37,24 +43,27 @@ func setupMiddleware(r *gin.Engine) {
 	})
 }
 
-func setupRoutes(r *gin.Engine, h *handlers.GameHandler, fs embed.FS) *http.Server {
+func setupRoutes(r *gin.Engine, h *handlers.GameHandler, authH *handlers.AuthHandler, authMW *middleware.UserAuthenticator) *http.Server {
 	port := os.Getenv("PORT")
 	if port == "" {
 		port = "8080"
 	}
 
-	//r.StaticFile("/", "./public/index.html")
-	r.GET("/", func(c *gin.Context) {
-		index, err := fs.ReadFile("index.html")
-		if err != nil {
-			fmt.Printf("Ошибка embed: %v\n", err)
-			c.String(http.StatusNotFound, "File not found")
-			return
-		}
-		c.Data(http.StatusOK, "text/html; charset=utf-8", index)
-	})
+	r.StaticFile("/", "./public/index.html")
 
-	r.POST("/game/:uuid", h.HandleMove)
+	r.POST("/signup", authH.SignUp)
+	r.POST("/login", authH.Authenticate)
+
+	authorized := r.Group("/")
+	authorized.Use(authMW.Handler())
+	{
+		authorized.POST("/game/create", h.CreateGame)
+		authorized.GET("/games/available", h.GetAvailableGames)
+		authorized.POST("/game/:uuid/join", h.JoinGame)
+		authorized.POST("/game/:uuid", h.HandleMove)
+		authorized.GET("/game/:uuid", h.GetGame)
+		authorized.GET("/user/:uuid", authH.GetUserInfo)
+	}
 
 	return &http.Server{
 		Addr:    ":" + port,

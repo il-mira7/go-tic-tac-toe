@@ -3,52 +3,119 @@ package handlers
 import (
 	"net/http"
 	"tic-tac-toe/internal/domain/interfaces"
-	domain "tic-tac-toe/internal/domain/models"
+	"tic-tac-toe/internal/domain/models"
 	"tic-tac-toe/internal/web/mappers"
-	web "tic-tac-toe/internal/web/models"
+	webModels "tic-tac-toe/internal/web/models"
 
 	"github.com/gin-gonic/gin"
 )
 
 type GameHandler struct {
-	service interfaces.GameService
+	gameManager interfaces.GameManager
 }
 
-func NewGameHandler(service interfaces.GameService) *GameHandler {
+func NewGameHandler(gameManager interfaces.GameManager) *GameHandler {
 	return &GameHandler{
-		service: service,
+		gameManager: gameManager,
 	}
+}
+
+func (h *GameHandler) CreateGame(c *gin.Context) {
+	ctx := c.Request.Context()
+
+	userID := c.GetString("user_id")
+	if userID == "" {
+		c.JSON(http.StatusUnauthorized, webModels.ErrorResponse{Message: "User not authenticated"})
+		return
+	}
+
+	var req struct {
+		IsVsBot bool `json:"is_vs_bot"`
+	}
+
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, webModels.ErrorResponse{Message: "Invalid request body"})
+		return
+	}
+
+	game, err := h.gameManager.CreateGame(ctx, userID, req.IsVsBot)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, webModels.ErrorResponse{Message: err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusCreated, mappers.ToWebResponse(game))
+}
+
+func (h *GameHandler) GetAvailableGames(c *gin.Context) {
+	ctx := c.Request.Context()
+
+	games, err := h.gameManager.GetAvailableGames(ctx)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, webModels.ErrorResponse{Message: err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, mappers.ToWebResponseList(games))
+}
+
+func (h *GameHandler) JoinGame(c *gin.Context) {
+	ctx := c.Request.Context()
+	gameUUID := c.Param("uuid")
+	userID := c.GetString("user_id")
+
+	if userID == "" {
+		c.JSON(http.StatusUnauthorized, webModels.ErrorResponse{Message: "User not authenticated"})
+		return
+	}
+
+	err := h.gameManager.JoinGame(ctx, gameUUID, userID)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, webModels.ErrorResponse{Message: err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": "Successfully joined the game"})
 }
 
 func (h *GameHandler) HandleMove(c *gin.Context) {
+	ctx := c.Request.Context()
+	gameUUID := c.Param("uuid")
+	if gameUUID == "" {
+		c.JSON(http.StatusBadRequest, webModels.ErrorResponse{Message: "UUID is required"})
+		return
+	}
+	userID := c.GetString("user_id")
 
-	uuid := c.Param("uuid")
-	if uuid == "" {
-		c.JSON(http.StatusBadRequest, web.ErrorResponse{Message: "UUID is required"})
+	if userID == "" {
+		c.JSON(http.StatusUnauthorized, webModels.ErrorResponse{Message: "User not authenticated"})
 		return
 	}
 
-	var req web.GameUpdateRequest
+	var req webModels.GameUpdateRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, web.ErrorResponse{Message: "Invalid JSON format"})
+		c.JSON(http.StatusBadRequest, webModels.ErrorResponse{Message: "Invalid JSON format"})
 		return
 	}
 
-	domainGame := mappers.ToDomain(uuid, req)
-	var status domain.GameStatus
-	ok, err := h.service.Validation(&domainGame, domain.Move{Row: req.Row, Col: req.Col})
-	if !ok {
-		c.JSON(http.StatusBadRequest, web.ErrorResponse{Message: err.Error()})
+	game, err := h.gameManager.MakeMove(ctx, gameUUID, userID, models.Move{Row: req.Row, Col: req.Col})
+	if err != nil {
+		c.JSON(http.StatusBadRequest, webModels.ErrorResponse{Message: err.Error()})
 		return
 	}
 
-	status = h.service.CompletionCheck(domainGame)
+	c.JSON(http.StatusOK, mappers.ToWebResponse(game))
+}
 
-	if status == domain.Ongoing {
-		h.service.CalculateNextMove(&domainGame)
-		status = h.service.CompletionCheck(domainGame)
+func (h *GameHandler) GetGame(c *gin.Context) {
+	ctx := c.Request.Context()
+	gameUUID := c.Param("uuid")
+
+	game, err := h.gameManager.GetGame(ctx, gameUUID)
+	if err != nil {
+		c.JSON(http.StatusNotFound, webModels.ErrorResponse{Message: "Game not found"})
+		return
 	}
 
-	response := mappers.ToResponse(domainGame, status)
-	c.JSON(http.StatusOK, response)
+	c.JSON(http.StatusOK, mappers.ToWebResponse(game))
 }

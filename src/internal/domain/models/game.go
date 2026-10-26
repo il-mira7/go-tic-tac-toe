@@ -1,5 +1,7 @@
 package models
 
+import "time"
+
 type GameBoard struct {
 	Board [3][3]int
 }
@@ -11,17 +13,31 @@ const (
 )
 
 type CurrentGame struct {
-	ID   string
-	Game GameBoard
+	ID     string
+	Game   GameBoard
+	Status GameStatus
+
+	PlayerXID string
+	PlayerOID string
+
+	CurrentTurnID string
+	WinnerID      string
+	IsVsComputer  bool
+
+	CreatedAt  time.Time
+	FinishedAt time.Time
 }
 
 type GameStatus int
 
 const (
-	Ongoing GameStatus = iota
+	Waiting GameStatus = iota
+	XTurn
+	OTurn
+
+	XWin
+	OWin
 	Draw
-	Player1Wins
-	Player2Wins
 )
 
 type Move struct {

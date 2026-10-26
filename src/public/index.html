@@ -3,161 +3,294 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Tic-Tac-Toe Go Project 2026</title>
+    <title>Tic-Tac-Toe Pro Elite</title>
     <style>
-        body { font-family: 'Segoe UI', sans-serif; display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; margin: 0; background-color: #f0f2f5; }
-        .board { display: grid; grid-template-columns: repeat(3, 100px); gap: 10px; background-color: #333; padding: 10px; border-radius: 12px; box-shadow: 0 8px 24px rgba(0,0,0,0.2); }
-        .cell { width: 100px; height: 100px; background-color: #fff; display: flex; align-items: center; justify-content: center; font-size: 48px; font-weight: bold; cursor: pointer; border-radius: 8px; transition: 0.2s; }
-        .cell:hover { background-color: #e9ecef; }
-        .cell.x { color: #ff4d4d; }
-        .cell.o { color: #4d79ff; }
-        .cell.disabled { cursor: not-allowed; opacity: 0.8; }
-        
-        #status-display { margin-top: 20px; padding: 12px 24px; border-radius: 30px; font-size: 18px; font-weight: 600; transition: 0.3s; }
-        .status-ongoing { color: #555; background: #eee; }
-        .status-win { background-color: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
-        .status-loss { background-color: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; }
-        .status-draw { background-color: #fff3cd; color: #856404; border: 1px solid #ffeeba; }
-        
-        .controls { margin-top: 30px; display: flex; flex-direction: column; align-items: center; gap: 10px; }
-        button { padding: 12px 24px; font-size: 16px; border: none; border-radius: 8px; background-color: #007bff; color: white; cursor: pointer; font-weight: 600; box-shadow: 0 4px 6px rgba(0,123,255,0.2); }
-        button:hover { background-color: #0056b3; }
-        small { color: #888; }
+        :root {
+            --bg: #0f172a;
+            --panel: #1e293b;
+            --accent: #6366f1;
+            --text: #f1f5f9;
+            --border: #334155;
+            --x-color: #f43f5e;
+            --o-color: #38bdf8;
+            --cell-size: 100px; /* Фиксированный размер для стабильности */
+        }
+
+        body { 
+            font-family: 'Segoe UI', system-ui, sans-serif; 
+            background: var(--bg); color: var(--text);
+            display: flex; align-items: center; justify-content: center; 
+            min-height: 100vh; margin: 0; overflow: hidden;
+        }
+
+        .app-container { 
+            background: var(--panel); padding: 30px; border-radius: 24px; 
+            box-shadow: 0 25px 50px -12px rgba(0,0,0,0.5); 
+            width: 400px; text-align: center; position: relative;
+            border: 1px solid var(--border);
+        }
+
+        /* Клетки поля */
+        .board { 
+            display: grid; 
+            grid-template-columns: repeat(3, 1fr); 
+            gap: 12px; 
+            background: #334155; 
+            padding: 12px; 
+            border-radius: 16px; 
+            margin: 20px 0; 
+            width: 100%;
+            box-sizing: border-box;
+        }
+
+        .cell { 
+            background: #1e293b; 
+            aspect-ratio: 1 / 1; /* Клетка всегда квадратная */
+            display: flex; 
+            align-items: center; 
+            justify-content: center; 
+            cursor: pointer; 
+            border-radius: 12px;
+            position: relative;
+        }
+
+        /* Рисуем Крестик (X) */
+        .cell.x::before, .cell.x::after {
+            content: '';
+            position: absolute;
+            width: 10%;
+            height: 70%;
+            background-color: var(--x-color);
+            border-radius: 5px;
+        }
+        .cell.x::before { transform: rotate(45deg); }
+        .cell.x::after { transform: rotate(-45deg); }
+
+        /* Рисуем Нолик (O) - крупный круг той же толщины */
+        .cell.o::before {
+            content: '';
+            position: absolute;
+            width: 60%;
+            height: 60%;
+            border: 8px solid var(--o-color); /* Толщина как у крестика */
+            border-radius: 50%;
+            box-sizing: border-box;
+        }
+
+        /* Остальные стили */
+        input { 
+            width: 100%; padding: 12px; margin: 8px 0; background: #0f172a;
+            border: 1px solid var(--border); border-radius: 12px; color: white;
+            box-sizing: border-box; outline: none;
+        }
+
+        button { 
+            width: 100%; padding: 12px; background: var(--accent); color: white; 
+            border: none; border-radius: 12px; font-weight: 600; cursor: pointer;
+            margin: 6px 0;
+        }
+
+        #result-overlay {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(15, 23, 42, 0.96); border-radius: 24px;
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            z-index: 1000;
+        }
+
+        .games-list { 
+            text-align: left; margin-top: 15px; max-height: 140px; 
+            overflow-y: auto; background: rgba(0,0,0,0.2); border-radius: 12px; padding: 10px;
+        }
+        .game-item { display: flex; justify-content: space-between; align-items: center; padding: 8px 0; border-bottom: 1px solid var(--border); font-size: 13px; }
+        .game-item button { width: auto; padding: 4px 12px; margin: 0; font-size: 11px; }
+
+        .status-bar { font-size: 14px; font-weight: 600; padding: 10px; background: #334155; border-radius: 10px; margin-bottom: 10px; }
+        .hidden { display: none !important; }
     </style>
 </head>
 <body>
-    <h1>Tic-Tac-Toe Go</h1>
-    
-    <div id="board" class="board"></div>
-    
-    <div id="status-display" class="status-ongoing">Ваш ход (X)</div>
-    
-    <div class="controls">
-        <button onclick="resetGame()">Начать новую игру</button>
-        <small id="game-id-label"></small>
+
+<div class="app-container">
+    <div id="result-overlay" class="hidden">
+        <div id="res-icon" style="font-size: 64px; margin-bottom: 10px;">🏆</div>
+        <div id="res-title" style="font-size: 28px; font-weight: 800; margin-bottom: 5px;">ПОБЕДА!</div>
+        <p id="res-desc" style="color: #94a3b8; margin-bottom: 25px;"></p>
+        <button onclick="closeMatch()" style="width: 180px;">В меню</button>
     </div>
 
-    <script>
-        // Функция генерации уникального ID для каждой новой игры
-        function generateUUID() {
-            return 'game-' + Math.random().toString(36).substr(2, 9);
+    <div id="auth-block">
+        <h2 style="margin-top:0">Вход в игру</h2>
+        <input type="text" id="login" placeholder="Логин">
+        <input type="password" id="password" placeholder="Пароль">
+        <button onclick="login()">Войти</button>
+        <button onclick="register()" style="background:none; border: 1px solid var(--border)">Регистрация</button>
+    </div>
+
+    <div id="lobby-block" class="hidden">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px;">
+            <span id="user-display" style="font-weight:700; color:var(--accent)"></span>
+            <button onclick="location.reload()" style="width:auto; padding:5px 12px; background:#475569; font-size:11px;">Выйти</button>
+        </div>
+        <label style="font-size:14px; display:block; margin-bottom:10px; cursor:pointer">
+            <input type="checkbox" id="vs-bot"> Против бота
+        </label>
+        <button onclick="createGame()">Новая игра</button>
+        <button onclick="refreshGames()" style="background:#334155">Обновить список</button>
+        <div class="games-list" id="games-container"></div>
+    </div>
+
+    <div id="game-block" class="hidden">
+        <div id="status-text" class="status-bar">Ожидание хода...</div>
+        <div id="board" class="board"></div>
+        <div style="font-size:10px; opacity:0.4" id="game-id-display"></div>
+    </div>
+</div>
+
+<script>
+    let currentUser = null;
+    let currentGameId = null;
+    let gameOver = false;
+    let boardData = [];
+    let myRole = null;
+
+    async function register() {
+        const loginVal = document.getElementById('login').value;
+        const passVal = document.getElementById('password').value;
+        const res = await fetch('/signup', { method: 'POST', body: JSON.stringify({ login: loginVal, password: passVal }) });
+        const data = await res.json();
+        alert(data.message || data.error);
+    }
+
+    async function login() {
+        const loginVal = document.getElementById('login').value;
+        const passVal = document.getElementById('password').value;
+        const authHeader = 'Basic ' + btoa(loginVal + ':' + passVal);
+        const res = await fetch('/login', { method: 'POST', headers: { 'Authorization': authHeader } });
+        if (res.ok) {
+            const data = await res.json();
+            currentUser = { uuid: data.uuid, login: loginVal, authHeader: authHeader };
+            document.getElementById('auth-block').classList.add('hidden');
+            document.getElementById('lobby-block').classList.remove('hidden');
+            document.getElementById('user-display').innerText = loginVal;
+            refreshGames();
+        } else { alert("Ошибка входа"); }
+    }
+
+    async function refreshGames() {
+        const res = await fetch('/games/available', { headers: { 'Authorization': currentUser.authHeader } });
+        const games = await res.json();
+        const container = document.getElementById('games-container');
+        container.innerHTML = games.length ? '' : '<div style="color:gray; font-size:12px; text-align:center; padding:10px;">Нет доступных игр</div>';
+        games.forEach(g => {
+            if (g.player_x_id !== currentUser.uuid) {
+                container.innerHTML += `<div class="game-item"><span>От: ${g.player_x_id.substring(0,6)}</span><button onclick="joinGame('${g.game_id}')">Зайти</button></div>`;
+            }
+        });
+    }
+
+    async function createGame() {
+        const res = await fetch('/game/create', {
+            method: 'POST',
+            headers: { 'Authorization': currentUser.authHeader, 'Content-Type': 'application/json' },
+            body: JSON.stringify({ is_vs_bot: document.getElementById('vs-bot').checked })
+        });
+        loadMatch(await res.json());
+    }
+
+    async function joinGame(id) {
+        const res = await fetch(`/game/${id}/join`, { method: 'POST', headers: { 'Authorization': currentUser.authHeader } });
+        if (res.ok) {
+            const gameData = await (await fetch(`/game/${id}`, { headers: { 'Authorization': currentUser.authHeader } })).json();
+            loadMatch(gameData);
         }
+    }
 
-        let gameId = generateUUID();
-        let gameOver = false;
-        let currentBoard = [
-            [0, 0, 0],
-            [0, 0, 0],
-            [0, 0, 0]
-        ];
+    function loadMatch(data) {
+        currentGameId = data.game_id;
+        boardData = data.board;
+        myRole = (data.player_x_id === currentUser.uuid) ? 1 : 2;
+        document.getElementById('lobby-block').classList.add('hidden');
+        document.getElementById('game-block').classList.remove('hidden');
+        renderBoard();
+        updateStatus(data);
+        if (!gameOver) setTimeout(() => poll(currentGameId), 2000);
+    }
 
-        function render() {
-            const boardDiv = document.getElementById('board');
-            const idLabel = document.getElementById('game-id-label');
-            boardDiv.innerHTML = '';
-            idLabel.innerText = `ID игры: ${gameId}`;
+    async function poll(id) {
+        if (gameOver || currentGameId !== id) return;
+        const res = await fetch(`/game/${id}`, { headers: { 'Authorization': currentUser.authHeader } });
+        if (res.ok) {
+            const data = await res.json();
+            boardData = data.board;
+            renderBoard();
+            updateStatus(data);
+            if (!gameOver) setTimeout(() => poll(id), 2000);
+        }
+    }
 
-            currentBoard.forEach((row, r) => {
-                row.forEach((cell, c) => {
-                    const div = document.createElement('div');
-                    div.className = 'cell';
-                    if (gameOver) div.classList.add('disabled');
-                    
-                    if (cell === 1) { 
-                        div.innerText = 'X'; 
-                        div.classList.add('x'); 
-                    } else if (cell === 2) { 
-                        div.innerText = 'O'; 
-                        div.classList.add('o'); 
-                    }
-                    
-                    div.onclick = () => makeMove(r, c);
-                    boardDiv.appendChild(div);
-                });
+    function renderBoard() {
+        const b = document.getElementById('board');
+        b.innerHTML = '';
+        boardData.forEach((row, r) => {
+            row.forEach((cell, c) => {
+                const div = document.createElement('div');
+                // Теперь мы не пишем текст, а просто ставим класс x или o
+                div.className = 'cell' + (cell === 1 ? ' x' : cell === 2 ? ' o' : '');
+                div.onclick = () => makeMove(r, c);
+                b.appendChild(div);
             });
-        }
+        });
+    }
 
-        async function makeMove(row, col) {
-            // Если игра окончена или клетка занята — игнорируем клик
-            if (gameOver || currentBoard[row][col] !== 0) return;
+    async function makeMove(r, c) {
+        if (gameOver) return;
+        const res = await fetch(`/game/${currentGameId}`, { 
+            method: 'POST',
+            headers: { 'Authorization': currentUser.authHeader, 'Content-Type': 'application/json' },
+            body: JSON.stringify({ row: r, col: c, board: boardData })
+        });
+        if (res.ok) loadMatch(await res.json());
+    }
 
-            const requestData = {
-                board: currentBoard,
-                row: row,
-                col: col
-            };
+    function updateStatus(data) {
+        const sText = document.getElementById('status-text');
+        const overlay = document.getElementById('result-overlay');
+        const status = data.status || "";
+        sText.innerText = status;
 
-            try {
-                //const response = await fetch(`http://localhost:8080/game/${gameId}`, {
-                const response = await fetch(`/game/${gameId}`, { 
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(requestData)
-                });
+        const isWin = status.toLowerCase().includes("wins");
+        const isDraw = status.toLowerCase().includes("draw");
 
-                if (response.ok) {
-                    const data = await response.json();
-                    
-                    // Обновляем состояние из ответа бэкенда
-                    currentBoard = data.board;
-                    
-                    //  статус должен совпадать с тем, что возвращает Go сервис (.String())
-                    handleGameStatus(data.status);
-                    
-                    render();
-                } else {
-                    const err = await response.json();
-                    alert(err.message || "Ошибка хода");
-                }
-            } catch (error) {
-                console.error("Fetch error:", error);
-                alert("Ошибка связи с сервером. Проверьте CORS!");
-            }
-        }
-
-        function handleGameStatus(status) {
-            const display = document.getElementById('status-display');
+        if (isWin || isDraw) {
+            gameOver = true;
+            overlay.classList.remove('hidden');
+            document.getElementById('res-desc').innerText = status;
             
-            if (status === "Ongoing") {
-                display.innerText = "Ваш ход (X)";
-                display.className = "status-ongoing";
+            const rTitle = document.getElementById('res-title');
+            const rIcon = document.getElementById('res-icon');
+            
+            if (isDraw) {
+                rTitle.innerText = "НИЧЬЯ";
+                rTitle.style.color = "#fbbf24";
+                rIcon.innerText = "🤝";
             } else {
-                gameOver = true; // Блокируем дальнейшие ходы
-                
-                if (status === "Player 1 Wins") {
-                    display.innerText = "Вы победили! 🎉";
-                    display.className = "status-win";
-                } else if (status === "Computer Wins") {
-                    display.innerText = "Робот победил 🤖";
-                    display.className = "status-loss";
-                } else if (status === "Draw") {
-                    display.innerText = "Ничья! 🤝";
-                    display.className = "status-draw";
-                }
+                const xWon = status.toLowerCase().includes("player x");
+                const win = (xWon && myRole === 1) || (!xWon && myRole === 2);
+                rTitle.innerText = win ? "ПОБЕДА!" : "ПОРАЖЕНИЕ";
+                rTitle.style.color = win ? "#22c55e" : "#f43f5e";
+                rIcon.innerText = win ? "🏆" : "💀";
             }
         }
+    }
 
-        function resetGame() {
-            // новый ID при каждом сбросе
-            gameId = generateUUID();
-            gameOver = false;
-            currentBoard = [
-                [0, 0, 0],
-                [0, 0, 0],
-                [0, 0, 0]
-            ];
-            
-            const display = document.getElementById('status-display');
-            display.innerText = "Ваш ход (X)";
-            display.className = "status-ongoing";
-            
-            render();
-            console.log("Новая игра запущена:", gameId);
-        }
-
-        // Инициализация при загрузке страницы
-        render();
-    </script>
+    function closeMatch() {
+        gameOver = false;
+        currentGameId = null;
+        document.getElementById('result-overlay').classList.add('hidden');
+        document.getElementById('game-block').classList.add('hidden');
+        document.getElementById('lobby-block').classList.remove('hidden');
+        refreshGames();
+    }
+</script>
 </body>
 </html>
-
