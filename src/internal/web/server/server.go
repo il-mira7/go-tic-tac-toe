@@ -7,6 +7,7 @@ import (
 	"os"
 	"tic-tac-toe/internal/web/handlers"
 	"tic-tac-toe/internal/web/middleware"
+	"tic-tac-toe/public"
 
 	"github.com/gin-gonic/gin"
 	"go.uber.org/fx"
@@ -50,7 +51,14 @@ func setupRoutes(r *gin.Engine, h *handlers.GameHandler, i *handlers.GameInfoHan
 		port = "8080"
 	}
 
-	r.StaticFile("/", "./public/index.html")
+	r.GET("/", func(c *gin.Context) {
+		index, err := public.Root.ReadFile("index.html")
+		if err != nil {
+			c.String(http.StatusInternalServerError, "не удалось прочитать index.html")
+			return
+		}
+		c.Data(http.StatusOK, "text/html; charset=utf-8", index)
+	})
 
 	r.POST("/signup", authH.SignUp)
 	r.POST("/login", authH.Login)
