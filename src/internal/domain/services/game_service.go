@@ -84,7 +84,7 @@ func minimax(board [3][3]int, isPlayer int, depth int) (int, models.Move) {
 		newStatus := checkStatus(status)
 		if newStatus > 0 {
 			newStatus = newStatus - depth
-		} else {
+		} else if newStatus < 0 {
 			newStatus = newStatus + depth
 		}
 		return newStatus, models.Move{Row: -1, Col: -1}
