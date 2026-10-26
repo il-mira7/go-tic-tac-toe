@@ -1,0 +1,4 @@
+# never commit secrets or local state into the image
+.git
+**/.env
+bin/

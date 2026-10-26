@@ -1,0 +1,42 @@
+# Поднимает весь стек: PostgreSQL + приложение.
+# Для разработки можно поднять одну БД (приложение — локально через make run):
+#   docker compose up -d db
+# Схема БД накатывается приложением автоматически при первом старте.
+#
+# Креды и секрет переопределяются переменными окружения:
+#   JWT_SECRET=... POSTGRES_PASSWORD=... docker compose up -d --build
+
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: tic-tac-toe-db
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-user}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-password}
+      POSTGRES_DB: ${POSTGRES_DB:-tictactoe_db}
+    ports:
+      # наружу — для локальной разработки (make run); самому приложению хватает внутренней сети
+      - "5433:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-user} -d ${POSTGRES_DB:-tictactoe_db}"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  app:
+    build: .
+    container_name: tic-tac-toe-app
+    environment:
+      DATABASE_URL: postgres://${POSTGRES_USER:-user}:${POSTGRES_PASSWORD:-password}@db:5432/${POSTGRES_DB:-tictactoe_db}
+      JWT_SECRET: ${JWT_SECRET:-change-me}
+      PORT: 8080
+    ports:
+      - "8080:8080"
+    depends_on:
+      db:
+        condition: service_healthy
+
+volumes:
+  pgdata:
